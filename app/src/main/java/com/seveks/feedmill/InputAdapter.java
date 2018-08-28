@@ -45,6 +45,7 @@ public class InputAdapter extends RecyclerView.Adapter<InputAdapter.InputViewHol
         holder.inputIndicator.setBackground(currentOutput.getInputState() ? drawables[0] : drawables[1]);
     }
 
+
     @Override
     public int getItemCount() {
         return inputsList.size();
