@@ -28,4 +28,19 @@ public class Commands {
         }
         return states;
     }
+
+    public static byte[] getInputStates(byte firstByte, byte secondByte){
+        byte[] states = new byte[16];
+        String firstEight = new StringBuilder(
+                String.format("%8s", Integer.toBinaryString(firstByte & 0xFF)).replace("1", "0").replace(" ", "1"))
+                .reverse().toString();
+        String secondEight = new StringBuilder(
+                String.format("%8s", Integer.toBinaryString(secondByte & 0xFF)).replace("1", "0").replace(" ", "1"))
+                .reverse().toString();
+        for (int i = 0; i < 8; i ++) {
+            states[i] = Byte.parseByte(String.valueOf(firstEight.charAt(i)));
+            states[i+8] = Byte.parseByte(String.valueOf(secondEight.charAt(i)));
+        }
+        return states;
+    }
 }

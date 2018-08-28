@@ -27,8 +27,8 @@ public class InputAdapter extends RecyclerView.Adapter<InputAdapter.InputViewHol
         this.inputsList = inputsList;
         this.context = context;
         drawables = new Drawable[2];
-        drawables[0] = ContextCompat.getDrawable(context, R.drawable.round_indicator_off);
-        drawables[1] = ContextCompat.getDrawable(context, R.drawable.round_indicator_on);
+        drawables[0] = ContextCompat.getDrawable(context, R.drawable.round_indicator_on);
+        drawables[1] = ContextCompat.getDrawable(context, R.drawable.round_indicator_off);
     }
 
     @Override
