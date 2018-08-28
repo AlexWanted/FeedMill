@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="utf-8"?>
+<android.support.v7.widget.CardView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_marginTop="5dp"
+    app:cardCornerRadius="0dp">
+
+    <RelativeLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent">
+
+        <TableRow
+            android:id="@+id/btnsContainer"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_alignBottom="@id/controllerCard"
+            android:layout_alignParentEnd="true"
+            android:layout_alignTop="@id/controllerCard"
+            android:weightSum="2">
+
+            <ImageButton
+                android:id="@+id/edit_btn"
+                android:layout_width="wrap_content"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:adjustViewBounds="true"
+                android:padding="15dp"
+                android:foreground="?selectableItemBackgroundBorderless"
+                android:background="@color/editBtnColor"
+                android:src="@drawable/ic_edit"
+                android:textSize="14sp" />
+
+            <ImageButton
+                android:id="@+id/remove_btn"
+                android:layout_width="wrap_content"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:adjustViewBounds="true"
+                android:padding="15dp"
+                android:foreground="?selectableItemBackgroundBorderless"
+                android:background="@color/removeBtnColor"
+                android:src="@drawable/ic_delete"
+                android:textSize="14sp" />
+
+        </TableRow>
+
+
+        <LinearLayout
+            android:id="@+id/controllerCard"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:visibility="visible"
+            android:background="@android:color/white">
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:layout_marginBottom="5dp"
+                android:layout_marginTop="5dp"
+                android:orientation="vertical">
+                <TextView
+                    android:id="@+id/controllerNameText"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:paddingLeft="10dp"
+                    android:textSize="24dp"
+                    android:text="Название"/>
+                <TextView
+                    android:id="@+id/controllerIpText"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:paddingLeft="16dp"
+                    android:textSize="18dp"
+                    android:text="192.168.0.1"/>
+            </LinearLayout>
+        </LinearLayout>
+
+    </RelativeLayout>
+</android.support.v7.widget.CardView>
