@@ -1,14 +1,11 @@
 package com.seveks.feedmill;
 
+import android.annotation.SuppressLint;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.SharedPreferences;
-import android.content.res.Resources;
-import android.graphics.Color;
-import android.graphics.Rect;
-import android.icu.util.Output;
-import android.os.AsyncTask;
 import android.os.Handler;
+import android.os.Message;
 import android.support.v7.app.ActionBar;
 import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
@@ -17,8 +14,6 @@ import android.support.v7.widget.GridLayoutManager;
 import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
 import android.text.Html;
-import android.util.Log;
-import android.util.TypedValue;
 import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuItem;
@@ -26,25 +21,19 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import com.seveks.feedmill.DataBase.Controller;
 import com.seveks.feedmill.DataBase.DBHelper;
 import com.seveks.feedmill.Fragments.ChangeIpDialog;
 
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
-import java.net.InetSocketAddress;
-import java.net.Socket;
-import java.net.SocketAddress;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.ListIterator;
 
 public class MainActivity extends AppCompatActivity implements OutputAdapter.ClickListener, ChangeIpDialog.DismissListener {
 
     public static final String PREF_PORT = "PREF_PORT";
-    Queue queue;
+    RequestQueue queue;
     public int port = 2001, timeout = 500;
     Controller controller;
     ArrayList<Outputs> insOutsList;
@@ -56,6 +45,7 @@ public class MainActivity extends AppCompatActivity implements OutputAdapter.Cli
     boolean isDialogOpened = false, firstRun = false;
     SharedPreferences prefs;
     ArrayList<Controller> controllersList;
+    @SuppressLint("HandlerLeak")
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -71,7 +61,84 @@ public class MainActivity extends AppCompatActivity implements OutputAdapter.Cli
             actionBar.setElevation(0);
         }
 
-        queue = new Queue();
+        queue = new RequestQueue();
+        queue.mUiHandler = new Handler(){
+            @Override
+            public void handleMessage(Message msg) {
+                switch (msg.what){
+                    case RequestQueue.REFRESH_CONNECTION:{
+                        byte[] outputStates = msg.getData().getByteArray("outputStates");
+                        byte[] inputStates = msg.getData().getByteArray("inputStates");
+                        actionBar.setTitle(Html.fromHtml("<font color='#00E676'>"+ controller.getIp() + ":" + port+"</font>"));
+                        if(controller.getName().length() > 0)
+                            actionBar.setSubtitle(Html.fromHtml("<font color='#00E676'>" + controller.getName() + "</font>"));
+                        else
+                            actionBar.setSubtitle(Html.fromHtml("<font color='#00E676'>Подключено</font>"));
+                        for (int i = 0; i < 16; i++) {
+                            if (firstRun || getByteByBoolean(insOutsList.get(i).getOutputState()) != outputStates[i]
+                                    || getByteByBoolean(insOutsList.get(i).getInputState()) != inputStates[i]) {
+                                insOutsList.get(i).setOutputState(getBooleanByByte(outputStates[i]));
+                                insOutsList.get(i).setInputState(getBooleanByByte(inputStates[i]));
+                                outputAdapter.notifyItemChanged(i);
+                                inputAdapter.notifyItemChanged(i);
+                            }
+                        }
+                        break;
+                    }
+                    case RequestQueue.COMMAND:{
+                        byte[] outputStates = msg.getData().getByteArray("outputStates");
+                        byte[] inputStates = msg.getData().getByteArray("inputStates");
+                        byte[] response = msg.getData().getByteArray("response");
+                        String first = String.format("%8s", Integer.toBinaryString(response[7] & 0xFF)).replace(" ", "0")
+                                +String.format("%8s", Integer.toBinaryString(response[6] & 0xFF)).replace(" ", "0");
+                        String second = String.format("%8s", Integer.toBinaryString(response[9] & 0xFF)).replace(" ", "0")
+                                +String.format("%8s", Integer.toBinaryString(response[8] & 0xFF)).replace(" ", "0");
+                        String third = String.format("%8s", Integer.toBinaryString(response[11] & 0xFF)).replace(" ", "0")
+                                +String.format("%8s", Integer.toBinaryString(response[10] & 0xFF)).replace(" ", "0");
+
+                        firstCounter.setText(String.valueOf(Integer.parseInt(new StringBuilder(first).reverse().toString(), 2)/64));
+                        secondCounter.setText(String.valueOf(Integer.parseInt(new StringBuilder(second).reverse().toString(), 2)/64));
+                        thirdCounter.setText(String.valueOf(Integer.parseInt(new StringBuilder(third).reverse().toString(), 2)/64));
+                        actionBar.setTitle(Html.fromHtml("<font color='#00E676'>"+ controller.getIp() + ":" + port+"</font>"));
+                        if(controller.getName().length() > 0)
+                            actionBar.setSubtitle(Html.fromHtml("<font color='#00E676'>" + controller.getName() + "</font>"));
+                        else
+                            actionBar.setSubtitle(Html.fromHtml("<font color='#00E676'>Подключено</font>"));
+                        int position = msg.getData().getInt("position", -1);
+                        for (int i = 0; i < 16; i++) {
+                            byte outputState = getByteByBoolean(insOutsList.get(i).getOutputState());
+                            byte inputState = getByteByBoolean(insOutsList.get(i).getInputState());
+                            if (outputState != outputStates[i] || inputState != inputStates[i]
+                                    || (insOutsList.get(i).isLoading() && i==position)
+                                    || (insOutsList.get(i).isLoading() && position==-1)) {
+                                insOutsList.get(i).setLoading(false);
+                                insOutsList.get(i).setOutputState(getBooleanByByte(outputStates[i]));
+                                insOutsList.get(i).setInputState(getBooleanByByte(inputStates[i]));
+                                outputAdapter.notifyItemChanged(i);
+                                inputAdapter.notifyItemChanged(i);
+                            }
+                        }
+                        break;
+                    }
+                    case RequestQueue.ERROR:{
+                        actionBar.setTitle(Html.fromHtml("<font color='#FF1744'>"+ controller.getIp() + ":" + port+"</font>"));
+                        if(controller.getName().length() > 0)
+                            actionBar.setSubtitle(Html.fromHtml("<font color='#FF1744'>" + controller.getName() + "</font>"));
+                        else
+                            actionBar.setSubtitle(Html.fromHtml("<font color='#FF1744'>Подключение...</font>"));
+                        int position = msg.getData().getInt("position");
+                        for (int i = 0; i < 16; i++) {
+                            if (insOutsList.get(i).isLoading()) {
+                                insOutsList.get(i).setLoading(false);
+                                outputAdapter.notifyItemChanged(i);
+                                inputAdapter.notifyItemChanged(i);
+                            }
+                        }
+                    }
+                }
+            }
+        };
+        queue.start();
 
         if(!prefs.contains(SettingsActivity.PREF_SELECTED_PRESET)){
             int id = dbHelper.insertPreset("Настройка 1");
@@ -86,6 +153,7 @@ public class MainActivity extends AppCompatActivity implements OutputAdapter.Cli
             openIpDialog();
         }
         dbHelper.close();
+
     }
 
     private void initRecycler() {
@@ -130,7 +198,7 @@ public class MainActivity extends AppCompatActivity implements OutputAdapter.Cli
         controllersRecycler.setItemAnimator(null);
         controllersRecycler.setAdapter(controllersAdapter);
 
-        queue.enqueue(new Queue.Node(new UpdateTask(controller.getIp(), port, true)));
+        queue.setUpConnection(controller.getIp(), port);
         dbHelper.close();
     }
 
@@ -177,7 +245,7 @@ public class MainActivity extends AppCompatActivity implements OutputAdapter.Cli
         if(firstRun) {
             initRecycler();
             firstRun = false;
-            queue.resumeQueue();
+            queue.setUpConnection(controller.getIp(), port);
         } else {
             insOutsList.clear();
             insOutsList.addAll(dbHelper.getInsOuts(controller.getId()));
@@ -200,7 +268,7 @@ public class MainActivity extends AppCompatActivity implements OutputAdapter.Cli
 
     public void toSettingsActivityForResult() {
         startActivityForResult(new Intent(this, SettingsActivity.class), 1);
-        queue.pauseQueue();
+        //queue.pauseQueue();
     }
 
     @Override
@@ -213,7 +281,7 @@ public class MainActivity extends AppCompatActivity implements OutputAdapter.Cli
                 openIpDialog();
             } else {
                 updateControllersRecycler(dbHelper);
-                queue.resumeQueue();
+                //queue.resumeQueue();
             }
             actionBar.setTitle(controller.getIp() + ":" + port);
             actionBar.setSubtitle(controller.getName());
@@ -228,13 +296,11 @@ public class MainActivity extends AppCompatActivity implements OutputAdapter.Cli
     @Override
     public void outputClicked(View view, int position) {
         if(!insOutsList.get(position).isLoading()) {
-            CommandTask connectionTask = new CommandTask(
-                    controller.getIp(), port, Commands.getCommandToggle(
-                    (byte) (insOutsList.get(position).getNumber() - 1),
-                    insOutsList.get(position).getOutputState()), position);
             insOutsList.get(position).setLoading(true);
             outputAdapter.notifyItemChanged(position);
-            queue.enqueue(new Queue.Node(connectionTask));
+            queue.command(Commands.getCommandToggle((byte) (insOutsList.get(position).getNumber()-1),
+                    insOutsList.get(position).getOutputState()),
+                    position);
         }
     }
 
@@ -266,13 +332,11 @@ public class MainActivity extends AppCompatActivity implements OutputAdapter.Cli
                         .setPositiveButton("Да", new DialogInterface.OnClickListener() {
                             @Override
                             public void onClick(DialogInterface dialog, int which) {
-                                CommandTask turnOffAllTask = new CommandTask(
-                                        controller.getIp(), port, Commands.commandTurnOffAll);
                                 for (int i = 0; i < insOutsList.size(); i++) {
                                     insOutsList.get(i).setLoading(true);
                                     outputAdapter.notifyItemChanged(i);
                                 }
-                                queue.enqueue(new Queue.Node(turnOffAllTask));
+                                queue.command(Commands.commandTurnOffAll, -1);
                             }
                         })
                         .setNegativeButton("Нет", new DialogInterface.OnClickListener() {
@@ -291,13 +355,11 @@ public class MainActivity extends AppCompatActivity implements OutputAdapter.Cli
                         .setPositiveButton("Да", new DialogInterface.OnClickListener() {
                             @Override
                             public void onClick(DialogInterface dialog, int which) {
-                                CommandTask turnOffAllTask = new CommandTask(
-                                        controller.getIp(), port, Commands.commandTurnOnAll);
                                 for (int i = 0; i < insOutsList.size(); i++) {
                                     insOutsList.get(i).setLoading(true);
                                     outputAdapter.notifyItemChanged(i);
                                 }
-                                queue.enqueue(new Queue.Node(turnOffAllTask));
+                                queue.command(Commands.commandTurnOnAll, -1);
                             }
                         })
                         .setNegativeButton("Нет", new DialogInterface.OnClickListener() {
@@ -319,7 +381,7 @@ public class MainActivity extends AppCompatActivity implements OutputAdapter.Cli
         return false;
     }
 
-    private class CommandTask extends AsyncTask<Void, Void, Void> {
+    /*private class CommandTask extends AsyncTask<Void, Void, Void> {
         String host;
         int port, errorsCount, outputNumber;
         byte[] request, outputStates, inputStates, response;
@@ -378,7 +440,9 @@ public class MainActivity extends AppCompatActivity implements OutputAdapter.Cli
             } catch (IOException e) {
                 if(errorsCount < 4) {
                     CommandTask connectionTask = new CommandTask(host, port, request, outputNumber, ++errorsCount);
-                    queue.enqueue(new Queue.Node(connectionTask));
+                    //queue.refresh(new Queue.Node(connectionTask));
+                    Message msg = queue.mBackgroundHandler.obtainMessage(Queue.);
+                    queue.mBackgroundHandler.sendMessage(msg);
                 } else {
                     if(request != Commands.commandTurnOffAll && request != Commands.commandTurnOnAll) {
                         insOutsList.get(outputNumber).setLoading(false);
@@ -552,16 +616,9 @@ public class MainActivity extends AppCompatActivity implements OutputAdapter.Cli
                 else
                     actionBar.setSubtitle(Html.fromHtml("<font color='#FF1744'>Подключение...</font>"));
             }
-            new Handler().postDelayed(new Runnable() {
-                @Override
-                public void run() {
-                    queue.enqueue(new Queue.Node(new UpdateTask(controller.getIp(), MainActivity.this.port)));
-                    //queue.run();
-                }
-            }, timeout);
         }
     }
-
+*/
     public boolean getBooleanByByte(byte i) {
         return i == 1;
     }
@@ -606,6 +663,7 @@ public class MainActivity extends AppCompatActivity implements OutputAdapter.Cli
                     actionBar.setSubtitle(currentController.getName());
                     controller = currentController;
                     dbHelper.close();
+                    queue.setUpConnection(controller.getIp(), port);
                 }
             });
         }
