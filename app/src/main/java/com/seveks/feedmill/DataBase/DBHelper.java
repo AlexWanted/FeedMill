@@ -249,7 +249,7 @@ public class DBHelper extends SQLiteOpenHelper {
                 int inID = insQuery.getInt(insQuery.getColumnIndex(COL_IN_ID));
                 int outID = outsQuery.getInt(outsQuery.getColumnIndex(COL_OUT_ID));
                 String outDescription = outsQuery.getString(outsQuery.getColumnIndex(COL_OUT_DESCRIPTION));
-                result.add(new Outputs(inID, outID, outDescription, inDescription, number, false, true));
+                result.add(new Outputs(inID, outID, outDescription, inDescription, number, false, false));
             } while (insQuery.moveToNext() && outsQuery.moveToNext());
 
         }

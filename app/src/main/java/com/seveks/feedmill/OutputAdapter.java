@@ -10,6 +10,7 @@ import android.support.v7.widget.RecyclerView;
 import android.support.v7.widget.SwitchCompat;
 import android.text.Html;
 import android.view.LayoutInflater;
+import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ProgressBar;
@@ -107,6 +108,12 @@ public class OutputAdapter extends RecyclerView.Adapter<OutputAdapter.OutputView
             outputSwitch = view.findViewById(R.id.output_switch);
             outputSwitch.setOnClickListener(listener);
             outputSwitch.setOnLongClickListener(longListener);
+            outputSwitch.setOnTouchListener(new View.OnTouchListener() {
+                @Override
+                public boolean onTouch(View v, MotionEvent event) {
+                    return event.getActionMasked() == MotionEvent.ACTION_MOVE;
+                }
+            });
             outputSwitch.setClickable(false);
             progressBar = view.findViewById(R.id.progress);
             foregroundTint = view.findViewById(R.id.foreground_tint);
